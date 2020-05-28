@@ -12,6 +12,12 @@ let generator;
 
 let imageRes = 64;
 
+window.preload = function() {
+    window.gfx = {
+        frog: loadImage('gfx/biggan_frog.png')
+    };
+}
+
 window.setup = function() {
     window.canvas = createCanvas(innerWidth, innerHeight);
     canvas.parent('sketch');
@@ -71,6 +77,11 @@ function drop(file) {
 window.keyPressed = function() {
     if (keyCode === 82 && targetImage) { // R
         generator.setTargetImage(targetImage)
+    } else if (keyCode === 70) { // F
+        targetImage = gfx.frog.get();
+        targetImage.resize(imageRes, imageRes);
+        targetImage.loadPixels();
+        generator.setTargetImage(targetImage);
     }
 }
 
