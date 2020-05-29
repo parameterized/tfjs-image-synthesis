@@ -2,16 +2,23 @@
 import * as tf from '@tensorflow/tfjs';
 
 let backendLoaded = false;
-tf.setBackend('webgl').then(() => backendLoaded = true);
+let forceCPU = false;
+if (forceCPU) {
+    tf.setBackend('cpu').then(() => backendLoaded = true);
+} else {
+    backendLoaded = true;
+}
 
 export class Generator {
-    backendLoaded = false;
-    targetTensor = null;
-    generating = false;
     steps = 0;
     maxSteps = 200;
     embedFreqs = 6;
     embedChannels = 3;
+    
+    backendLoaded = false;
+    generating = false;
+    targetTensor = null;
+    embedding = null;
 
     constructor(imageRes) {
         this.imageRes = imageRes;
@@ -30,6 +37,7 @@ export class Generator {
         });
 
         this.embedPhase = tf.randomUniform([this.embedFreqs, 2, this.embedChannels]).mul(TWO_PI);
+        this.embedding = this.getEmbedding();
         
         this.model = tf.sequential();
         this.model.add(tf.layers.conv2d({
@@ -80,8 +88,7 @@ export class Generator {
         let imageTensor;
         tf.tidy(() => {
             this.optimizer.minimize(() => {
-                let embedding = this.getEmbedding();
-                let predTensor = this.model.predict(embedding.expandDims(0)).squeeze();
+                let predTensor = this.model.predict(this.embedding.expandDims(0)).squeeze();
                 imageTensor = tf.keep(predTensor.clipByValue(0, 1));
                 return tf.losses.meanSquaredError(this.targetTensor, predTensor);
             });

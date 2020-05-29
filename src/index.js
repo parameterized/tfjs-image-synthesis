@@ -2,6 +2,7 @@
 import './utils.js';
 import { Viewport } from './viewport.js';
 import { Generator } from './generator.js';
+import * as tf from '@tensorflow/tfjs';
 
 window.targetWidth = 1600;
 window.targetHeight = 900;
@@ -75,13 +76,41 @@ function drop(file) {
 }
 
 window.keyPressed = function() {
-    if (keyCode === 82 && targetImage) { // R
-        generator.setTargetImage(targetImage)
-    } else if (keyCode === 70) { // F
-        targetImage = gfx.frog.get();
-        targetImage.resize(imageRes, imageRes);
-        targetImage.loadPixels();
-        generator.setTargetImage(targetImage);
+    switch (keyCode) {
+        case 82: // R
+            if (targetImage) {
+                generator.setTargetImage(targetImage);
+            }
+            break;
+        case 70: // F
+            targetImage = gfx.frog.get();
+            targetImage.resize(imageRes, imageRes);
+            targetImage.loadPixels();
+            generator.setTargetImage(targetImage);
+            break;
+        case 90: // Z
+            generator.embedding = tf.tidy(() => {
+                let waves = [];
+                for (let freq = 0; freq < generator.embedFreqs; freq++) {
+                    for (let axis = 0; axis < 2; axis++) {
+                        for (let channel = 0; channel < generator.embedChannels; channel++) {
+                            let phase = generator.embedPhase.slice([freq, axis, channel], [1, 1, 1]).flatten();
+                            let x = tf.linspace(0, PI * pow(2, freq), generator.imageRes + 1).slice([0], [generator.imageRes]);
+                            x = x.mul(3).sub(PI * pow(2, freq));
+                            x = x.add(phase);
+                            x = tf.stack([x.cos(), x.sin()], -1);
+                            if (axis === 0) {
+                                waves.push(x.expandDims(0).tile([generator.imageRes, 1, 1]));
+                            } else {
+                                waves.push(x.expandDims(1).tile([1, generator.imageRes, 1]));
+                            }
+                        }
+                    }
+                }
+                return tf.concat(waves, -1);
+            });
+            generator.step();
+            break;
     }
 }
 
