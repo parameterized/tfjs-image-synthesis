@@ -1,17 +1,24 @@
 
 import './utils.js';
 import { Viewport } from './viewport.js';
+import { Uploader } from './uploader.js';
 import { Generator } from './generator.js';
-import * as tf from '@tensorflow/tfjs';
 
 window.targetWidth = 1600;
 window.targetHeight = 900;
+export let viewport;
 
-let bg1, bg2, bgCol;
-let targetImage;
-let generator;
+let fixedDt = 1 / 60;
+let dtTimer = 0;
 
-let imageRes = 64;
+export let touchUsed = false;
+export let touchIsPressed = false;
+export let touchTimer = 1; // disable mouse if touch use in last 0.5s
+export let ptouches = []; // touches before callback
+export let touch = null; // set to what callback is referencing
+
+export let imageRes = 64;
+export let uploader, generator;
 
 window.preload = function() {
     window.gfx = {
@@ -20,7 +27,7 @@ window.preload = function() {
 }
 
 window.setup = function() {
-    window.canvas = createCanvas(innerWidth, innerHeight);
+    canvas = createCanvas(innerWidth, innerHeight);
     canvas.parent('sketch');
 
     // prevent default for right click, double click, and tab
@@ -38,84 +45,108 @@ window.setup = function() {
         }
     });
 
-    // nearest neighbor scaling
+    // nearest neighbor scaling when drawing
     let context = canvas.elt.getContext('2d');
     context.mozImageSmoothingEnabled = false;
     context.webkitImageSmoothingEnabled = false;
     context.msImageSmoothingEnabled = false;
     context.imageSmoothingEnabled = false;
-
-    // add drop callbacks
-    canvas.dragOver(dragOver);
-    canvas.dragLeave(dragLeave);
-    canvas.drop(drop, dragLeave);
-
     strokeJoin(ROUND);
+    
+    viewport = new Viewport(targetWidth, targetHeight);
 
-    window.viewport = new Viewport(targetWidth, targetHeight);
+    uploader = new Uploader();
+    // add drop callbacks
+    canvas.dragOver(() => uploader.dragOver());
+    canvas.dragLeave(() => uploader.dragLeave());
+    canvas.drop(file => uploader.drop(file), () => uploader.dragLeave());
+
     generator = new Generator(imageRes);
-
-    bg1 = color('#EEF1EF');
-    bg2 = color('#A9B4C2');
-    bgCol = bg1;
 }
 
-function dragOver() {
-    bgCol = bg2;
+function pressed() {
+    uploader.mousePressed();
 }
-function dragLeave() {
-    bgCol = bg1;
+function released() {
+    
 }
-function drop(file) {
-    loadImage(file.data, img => {
-        targetImage = img;
-        img.resize(imageRes, imageRes);
-        img.loadPixels();
-        generator.setTargetImage(img);
-    });
+
+window.mousePressed = function(event) {
+    event.preventDefault();
+    if (touchTimer > 0.5) {
+        pressed();
+    }
+}
+window.touchStarted = function(event) {
+    event.preventDefault();
+    touchUsed = true;
+    // first element in touches that isn't in ptouches
+    touch = touches.filter(t => ptouches.findIndex(pt => pt.id === t.id) === -1)[0];
+    touchIsPressed = true;
+    if (touch) {
+        mouseX = touch.x;
+        mouseY = touch.y;
+        viewport.updateMouse();
+    }
+    pressed();
+    ptouches = [...touches];
+    touch = null;
+}
+
+window.mouseReleased = function(event) {
+    event.preventDefault();
+    if (touchTimer > 0.5) {
+        released();
+    }
+}
+window.touchEnded = function(event) {
+    event.preventDefault();
+    // first element in ptouches that isn't in touches
+    touch = ptouches.filter(pt => touches.findIndex(t => t.id === pt.id) === -1)[0];
+    if (touches.length === 0) {
+        touchIsPressed = false;
+    }
+    released();
+    ptouches = [...touches];
+    touch = null;
+}
+
+window.mouseDragged = function(event) {
+    event.preventDefault();
+}
+window.touchMoved = function(event) {
+    event.preventDefault();
 }
 
 window.keyPressed = function() {
     switch (keyCode) {
         case 82: // R
-            if (targetImage) {
-                generator.setTargetImage(targetImage);
+            if (uploader.scaledImage) {
+                generator.startTraining();
             }
             break;
         case 70: // F
-            targetImage = gfx.frog.get();
-            targetImage.resize(imageRes, imageRes);
-            targetImage.loadPixels();
-            generator.setTargetImage(targetImage);
+            uploader.handleImage(gfx.frog);
             break;
         case 90: // Z
-            generator.embedding = tf.tidy(() => {
-                let waves = [];
-                for (let freq = 0; freq < generator.embedFreqs; freq++) {
-                    for (let axis = 0; axis < 2; axis++) {
-                        for (let channel = 0; channel < generator.embedChannels; channel++) {
-                            let phase = generator.embedPhase.slice([freq, axis, channel], [1, 1, 1]).flatten();
-                            let x = tf.linspace(0, PI * pow(2, freq), generator.imageRes + 1).slice([0], [generator.imageRes]);
-                            x = x.mul(3).sub(PI * pow(2, freq));
-                            x = x.add(phase);
-                            x = tf.stack([x.cos(), x.sin()], -1);
-                            if (axis === 0) {
-                                waves.push(x.expandDims(0).tile([generator.imageRes, 1, 1]));
-                            } else {
-                                waves.push(x.expandDims(1).tile([1, generator.imageRes, 1]));
-                            }
-                        }
-                    }
-                }
-                return tf.concat(waves, -1);
-            });
-            generator.step();
+            generator.zoomOut();
             break;
     }
 }
 
 function update() {
+    document.body.style.cursor = 'default';
     let dt = min(1 / frameRate(), 1 / 10);
+    dtTimer += dt;
+    while (dtTimer > 0) {
+        dtTimer -= fixedDt;
+        fixedUpdate(fixedDt);
+    }
+
+    viewport.updateMouse();
+}
+
+function fixedUpdate(dt) {
     generator.update(dt);
 }
 
@@ -124,15 +155,12 @@ window.draw = function() {
     noStroke();
 
     viewport.set();
-    background(bgCol);
+    background('#EEF1EF');
 
-    if (targetImage) {
-        image(targetImage, 64, 64, 640, 640);
-    }
-    image(generator.image, targetWidth - (640 + 64), 64, 640, 640);
+    uploader.draw();
+    generator.draw();
 
-    fill(0, 0, 255);
-    rect(targetWidth - (640 + 64), 720, 640 * generator.steps / generator.maxSteps, 20);
+    uploader.drawOverlay();
 
     // cover top/bottom off-screen graphics
     fill('#1C2321');

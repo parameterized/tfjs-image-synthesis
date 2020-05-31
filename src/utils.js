@@ -1,13 +1,16 @@
 
-window.utils = {
+import { viewport, touchTimer } from './index.js';
+
+let utils = {
     mouseInRect(r_or_x, y, w, h) {
         let x = r_or_x;
         if (typeof (r_or_x) === 'object') {
             let r = r_or_x;
-            x = r.x;
-            y = r.y;
-            w = r.w;
-            h = r.h;
+            if (r.length) {
+                x = r[0]; y = r[1]; w = r[2]; h = r[3];
+            } else {
+                x = r.x; y = r.y; w = r.w; h = r.h;
+            }
         }
         return (viewport.mouseX > x && viewport.mouseX < x + w
             && viewport.mouseY > y && viewport.mouseY < y + h);
@@ -42,7 +45,7 @@ window.utils = {
     }
 };
 
-window.ease = {
+let ease = {
     inQuad(t) { return t * t },
     outQuad(t) { return t * (2 - t) },
     inOutQuad(t) { return t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t },
@@ -56,3 +59,5 @@ window.ease = {
     outQuint(t) { return 1 + (--t) * t * t * t * t },
     inOutQuint(t) { return t < .5 ? 16 * t * t * t * t * t : 1 + 16 * (--t) * t * t * t * t }
 };
+
+export { utils, ease };
