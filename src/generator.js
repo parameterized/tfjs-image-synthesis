@@ -11,13 +11,17 @@ if (forceCPU) {
 }
 
 export class Generator {
-    imageBox = [targetWidth - (640 + 64), 64, 640, 640];
     steps = 0;
     maxSteps = 200;
     embedFreqs = 6;
     embedChannels = 3;
 
     constructor() {
+        let cx = targetWidth * 3 / 4;
+        let cy = targetHeight / 2;
+        let w = 512, h = 512;
+        this.imageBox = [cx - w / 2, cy - h / 2, w, h];
+
         this.image = createImage(imageRes, imageRes);
         this.image.loadPixels();
     }
@@ -25,11 +29,12 @@ export class Generator {
     loadTargetTensor() {
         if (!backendLoaded) { return; }
 
-        let targetImage = uploader.scaledImage;
+        this.targetImage = uploader.scaledImage;
+        let img = this.targetImage;
         this.targetTensor = tf.tidy(() => {
             return tf.browser.fromPixels({
-                data: Uint8Array.from(targetImage.pixels),
-                width: targetImage.width, height: targetImage.height
+                data: Uint8Array.from(img.pixels),
+                width: img.width, height: img.height
             }, 3).div(255);
         });
 

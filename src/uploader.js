@@ -1,12 +1,17 @@
 
 import { utils } from './utils.js';
-import { imageRes, generator } from './index.js';
+import { imageRes, stateManager as sm } from './index.js';
 
 export class Uploader {
-    imageBox = [64, 64, 640, 640];
+    constructor() {
+        let cx = targetWidth / 4;
+        let cy = targetHeight / 2;
+        let w = 512, h = 512;
+        this.imageBox = [cx - w / 2, cy - h / 2, w, h];
+    }
 
     handleFile(file) {
-        if (file.type === 'image') {
+        if (file.type === 'image' && sm.activeState !== sm.states.menu) {
             loadImage(file.data, img => this.handleImage(img));
         }
     }
@@ -16,8 +21,7 @@ export class Uploader {
         this.scaledImage = img.get();
         this.scaledImage.resize(imageRes, imageRes);
         this.scaledImage.loadPixels();
-        generator.loadTargetTensor();
-        generator.startTraining();
+        sm.handleImage();
     }
 
     dragOver() {

@@ -1,27 +1,30 @@
 
-import './utils.js';
 import { Viewport } from './viewport.js';
+import { StateManager } from './states/manager.js';
 import { Uploader } from './uploader.js';
 import { Generator } from './generator.js';
 
 window.targetWidth = 1600;
 window.targetHeight = 900;
 export let viewport;
+export let gfx;
+
+export let touchUsed = false;
+export let touchIsPressed = false;
+export let touchTimer = 1; // disable mouse if touch used in last 0.5s
+export let ptouches = []; // touches before callback
+export let touch = null; // set to what callback is referencing
 
 let fixedDt = 1 / 60;
 let dtTimer = 0;
 
-export let touchUsed = false;
-export let touchIsPressed = false;
-export let touchTimer = 1; // disable mouse if touch use in last 0.5s
-export let ptouches = []; // touches before callback
-export let touch = null; // set to what callback is referencing
+export let stateManager;
 
 export let imageRes = 64;
 export let uploader, generator;
 
 window.preload = function() {
-    window.gfx = {
+    gfx = {
         frog: loadImage('gfx/biggan_frog.png')
     };
 }
@@ -51,9 +54,12 @@ window.setup = function() {
     context.webkitImageSmoothingEnabled = false;
     context.msImageSmoothingEnabled = false;
     context.imageSmoothingEnabled = false;
+
     strokeJoin(ROUND);
     
     viewport = new Viewport(targetWidth, targetHeight);
+
+    stateManager = new StateManager();
 
     uploader = new Uploader();
     // add drop callbacks
@@ -65,11 +71,9 @@ window.setup = function() {
 }
 
 function pressed() {
-    uploader.mousePressed();
+    stateManager.mousePressed();
 }
-function released() {
-    
-}
+function released() { }
 
 window.mousePressed = function(event) {
     event.preventDefault();
@@ -119,19 +123,7 @@ window.touchMoved = function(event) {
 }
 
 window.keyPressed = function() {
-    switch (keyCode) {
-        case 82: // R
-            if (uploader.scaledImage) {
-                generator.startTraining();
-            }
-            break;
-        case 70: // F
-            uploader.handleImage(gfx.frog);
-            break;
-        case 90: // Z
-            generator.zoomOut();
-            break;
-    }
+    stateManager.keyPressed();
 }
 
 function update() {
@@ -147,7 +139,7 @@ function update() {
 }
 
 function fixedUpdate(dt) {
-    generator.update(dt);
+    stateManager.update(dt);
 }
 
 window.draw = function() {
@@ -155,12 +147,8 @@ window.draw = function() {
     noStroke();
 
     viewport.set();
-    background('#EEF1EF');
-
-    uploader.draw();
-    generator.draw();
-
-    uploader.drawOverlay();
+    
+    stateManager.draw();
 
     // cover top/bottom off-screen graphics
     fill('#1C2321');
