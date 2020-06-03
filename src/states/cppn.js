@@ -1,31 +1,22 @@
 
-import { utils } from '../utils.js';
-import { gfx, stateManager as sm, uploader, generator } from '../index.js';
+import { targetWidth, targetHeight, gfx, stateManager as sm, uploader, generator } from '../index.js';
+import { UI } from '../ui.js';
 
 export class CPPNState {
     constructor() {
-        this.buttons = [
-            {
-                text: 'Back', box: [50, 50, 200, 80],
-                action: () => sm.activeState = sm.states.menu
-            }
-        ];
+        this.ui = new UI();
+        this.ui.addButton('Back', [50, 50, 200, 80], () => sm.switchState('menu'));
     }
 
     mousePressed() {
-        for (let v of this.buttons) {
-            if (utils.mouseInRect(v.box) && v.action) {
-                v.action();
-            }
-        }
-
+        this.ui.mousePressed();
         uploader.mousePressed();
     }
 
     keyPressed() {
         switch (keyCode) {
             case 27: // Esc
-                sm.activeState = sm.states.menu;
+                sm.switchState('menu');
                 break;
             case 82: // R
                 if (generator.targetTensor) {
@@ -51,26 +42,12 @@ export class CPPNState {
     }
 
     draw() {
-        background('#EEF1EF');
+        fill('#EEF1EF');
+        rect(0, 0, targetWidth, targetHeight);
 
         uploader.draw();
         generator.draw();
-
-        textAlign(CENTER, CENTER);
-        textSize(36);
-        for (let v of this.buttons) {
-            if (utils.mouseInRect(v.box)) {
-                utils.setPointer();
-                fill('#5E6572');
-            } else {
-                fill('#A9B4C2');
-            }
-            rect(...v.box);
-            fill('#1C2321');
-            let b = v.box;
-            let bx = b[0], by = b[1], bw = b[2], bh = b[3];
-            text(v.text, bx + bw / 2, by + bh / 2 + 3);
-        }
+        this.ui.draw();
 
         uploader.drawOverlay();
     }

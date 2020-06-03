@@ -1,6 +1,6 @@
 
 import { utils } from './utils.js';
-import { imageRes, stateManager as sm } from './index.js';
+import { targetWidth, targetHeight, imageRes, stateManager as sm } from './index.js';
 
 export class Uploader {
     constructor() {

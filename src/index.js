@@ -4,8 +4,8 @@ import { StateManager } from './states/manager.js';
 import { Uploader } from './uploader.js';
 import { Generator } from './generator.js';
 
-window.targetWidth = 1600;
-window.targetHeight = 900;
+export let targetWidth = 1600;
+export let targetHeight = 900;
 export let viewport;
 export let gfx;
 

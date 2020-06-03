@@ -1,6 +1,6 @@
 
 import * as tf from '@tensorflow/tfjs';
-import { imageRes, uploader } from './index.js';
+import { targetWidth, targetHeight, imageRes, uploader } from './index.js';
 
 let backendLoaded = false;
 let forceCPU = false;
