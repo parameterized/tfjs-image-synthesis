@@ -73,7 +73,9 @@ window.setup = function() {
 function pressed() {
     stateManager.mousePressed();
 }
-function released() { }
+function released() {
+    stateManager.mouseReleased();
+}
 
 window.mousePressed = function(event) {
     event.preventDefault();
@@ -120,6 +122,11 @@ window.mouseDragged = function(event) {
 }
 window.touchMoved = function(event) {
     event.preventDefault();
+}
+
+window.mouseWheel = function(event) {
+    event.preventDefault();
+    stateManager.mouseWheel(event.delta);
 }
 
 window.keyPressed = function() {

@@ -15,10 +15,13 @@ let utils = {
         return (viewport.mouseX > x && viewport.mouseX < x + w
             && viewport.mouseY > y && viewport.mouseY < y + h);
     },
-    setPointer() {
+    cursorStyle(style) {
         if (touchTimer > 0.5) {
-            document.body.style.cursor = 'pointer';
+            document.body.style.cursor = style;
         }
+    },
+    setPointer() {
+        utils.cursorStyle('pointer');
     },
     hash(x, y) {
         return abs(sin(x * 12.9898 + y * 4.1414) * 43758.5453) % 1;

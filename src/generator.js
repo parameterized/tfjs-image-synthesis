@@ -15,6 +15,10 @@ export class Generator {
     maxSteps = 200;
     embedFreqs = 6;
     embedChannels = 3;
+    smallModel = false;
+
+    offset = { x: 0, y: 0 };
+    zoom = 1;
 
     constructor() {
         let cx = targetWidth * 3 / 4;
@@ -49,28 +53,43 @@ export class Generator {
 
     loadNetwork() {
         this.embedPhase = tf.randomUniform([this.embedFreqs, 2, this.embedChannels]).mul(TWO_PI);
-        this.embedding = this.getEmbedding();
+        this.trainEmbedding = this.getEmbedding(true);
+        this.viewEmbedding = this.getEmbedding();
 
         this.model = tf.sequential();
-        this.model.add(tf.layers.conv2d({
-            filters: 64, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu',
-            inputShape: [imageRes, imageRes, this.embedFreqs * 2 * this.embedChannels * 2]
-        }));
-        this.model.add(tf.layers.conv2d({ filters: 64, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu' }));
-        this.model.add(tf.layers.conv2d({ filters: 32, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu' }));
-        this.model.add(tf.layers.conv2d({ filters: 3, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'sigmoid' }));
+        if (this.smallModel) {
+            this.model.add(tf.layers.conv2d({
+                filters: 16, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu',
+                inputShape: [imageRes, imageRes, this.embedFreqs * 2 * this.embedChannels * 2]
+            }));
+            this.model.add(tf.layers.conv2d({ filters: 3, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'sigmoid' }));
+        } else {
+            this.model.add(tf.layers.conv2d({
+                filters: 64, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu',
+                inputShape: [imageRes, imageRes, this.embedFreqs * 2 * this.embedChannels * 2]
+            }));
+            this.model.add(tf.layers.conv2d({ filters: 64, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu' }));
+            this.model.add(tf.layers.conv2d({ filters: 32, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'relu' }));
+            this.model.add(tf.layers.conv2d({ filters: 3, kernelSize: 1, kernelInitializer: 'heNormal', activation: 'sigmoid' }));
+        }
 
         this.optimizer = tf.train.adam(0.01);
     }
 
-    getEmbedding() {
+    getEmbedding(train) {
         return tf.tidy(() => {
             let waves = [];
-            for (let freq = 0; freq < this.embedFreqs; freq++) {
-                for (let axis = 0; axis < 2; axis++) {
+            for (let axis = 0; axis < 2; axis++) {
+                let pts = tf.linspace(0, 1, imageRes + 1).slice([0], [imageRes]);
+                if (!train) {
+                    let offset = this.offset[axis === 0 ? 'x' : 'y'];
+                    pts = pts.sub(0.5).div(this.zoom).add(0.5);
+                    pts = pts.sub(offset);
+                }
+                for (let freq = 0; freq < this.embedFreqs; freq++) {
                     for (let channel = 0; channel < this.embedChannels; channel++) {
+                        let x = pts.mul(PI * pow(2, freq));
                         let phase = this.embedPhase.slice([freq, axis, channel], [1, 1, 1]).flatten();
-                        let x = tf.linspace(0, PI * pow(2, freq), imageRes + 1).slice([0], [imageRes]);
                         x = x.add(phase);
                         x = tf.stack([x.cos(), x.sin()], -1);
                         if (axis === 0) {
@@ -85,28 +104,27 @@ export class Generator {
         });
     }
 
-    zoomOut() {
-        this.embedding = tf.tidy(() => {
-            let waves = [];
-            for (let freq = 0; freq < this.embedFreqs; freq++) {
-                for (let axis = 0; axis < 2; axis++) {
-                    for (let channel = 0; channel < this.embedChannels; channel++) {
-                        let phase = this.embedPhase.slice([freq, axis, channel], [1, 1, 1]).flatten();
-                        let x = tf.linspace(0, PI * pow(2, freq), imageRes + 1).slice([0], [imageRes]);
-                        x = x.mul(3).sub(PI * pow(2, freq));
-                        x = x.add(phase);
-                        x = tf.stack([x.cos(), x.sin()], -1);
-                        if (axis === 0) {
-                            waves.push(x.expandDims(0).tile([imageRes, 1, 1]));
-                        } else {
-                            waves.push(x.expandDims(1).tile([1, imageRes, 1]));
-                        }
-                    }
-                }
-            }
-            return tf.concat(waves, -1);
-        });
-        this.step();
+    async setTransform(x, y, zoom) {
+        if (x === this.offset.x && y === this.offset.y && zoom === this.zoom
+            || !this.targetTensor) {
+            return;
+        }
+        this.offset.x = x;
+        this.offset.y = y;
+        this.zoom = zoom;
+        this.viewEmbedding = this.getEmbedding();
+        if (backendLoaded && this.targetTensor
+            && !this.generating && this.steps >= this.maxSteps) {
+            this.generating = true;
+            let imageTensor = tf.tidy(() => {
+                let predTensor = this.model.predict(this.viewEmbedding.expandDims(0)).squeeze();
+                return predTensor.clipByValue(0, 1);
+            });
+            let newImage = await tf.browser.toPixels(imageTensor);
+            copyPixels(newImage, this.image.pixels);
+            this.image.updatePixels();
+            this.generating = false;
+        }
     }
 
     update(dt) {
@@ -120,12 +138,19 @@ export class Generator {
         this.generating = true;
 
         let imageTensor;
+        let viewIsOrigin = this.offset.x === 0 && this.offset.y === 0 && this.zoom === 1;
         tf.tidy(() => {
             this.optimizer.minimize(() => {
-                let predTensor = this.model.predict(this.embedding.expandDims(0)).squeeze();
-                imageTensor = tf.keep(predTensor.clipByValue(0, 1));
+                let predTensor = this.model.predict(this.trainEmbedding.expandDims(0)).squeeze();
+                if (viewIsOrigin) {
+                    imageTensor = tf.keep(predTensor.clipByValue(0, 1));
+                }
                 return tf.losses.meanSquaredError(this.targetTensor, predTensor);
             });
+            if (!viewIsOrigin) {
+                imageTensor = this.model.predict(this.viewEmbedding.expandDims(0)).squeeze();
+                imageTensor = tf.keep(imageTensor.clipByValue(0, 1));
+            }
         });
         
         let newImage = await tf.browser.toPixels(imageTensor);

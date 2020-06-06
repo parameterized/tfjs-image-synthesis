@@ -7,7 +7,11 @@ export class MenuState {
         this.ui = new UI();
         let c1 = color('#EEF1EF');
         let c2 = color('#A9B4C2');
-        this.ui.addButton('CPPN', [160, 160, 200, 80], () => sm.switchState('cppn'), c1, c2);
+        this.ui.addButton({
+            text: 'CPPN', box: [160, 160, 200, 80],
+            action: () => sm.switchState('cppn'),
+            c1: c1, c2: c2
+        });
     }
 
     mousePressed() {

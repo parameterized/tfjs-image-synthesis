@@ -15,7 +15,7 @@ export class StateManager {
         this.activeState = this.states.menu;
 
         // set up callbacks
-        let cbs = ['mousePressed', 'keyPressed', 'handleImage'];
+        let cbs = ['mousePressed', 'mouseReleased', 'mouseWheel', 'keyPressed', 'handleImage'];
         for (let id of cbs) {
             this[id] = (...args) => this.stateCallback(id, ...args);
         }

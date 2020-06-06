@@ -9,5 +9,4 @@ If you want to modify the code, install the dependencies (`npm install`) then `n
 
 ## Controls
 - Drag and drop an image (or press F) to start
-- R to reset weights and retrain
-- Press Z at the end of training to zoom out
+- R to retrain
