@@ -2,7 +2,16 @@
 import { utils } from './utils.js';
 
 export class UI {
+    text = [];
     buttons = [];
+
+    addText(t) {
+        // (text/getText), x, y, [c, textSize]
+        t.c = t.c || color(0);
+        t.textSize = t.textSize || 36;
+        this.text.push(t);
+        return t;
+    }
 
     addButton(btn) {
         // (text/getText), box, action, [c1, c2, textSize]
@@ -23,6 +32,12 @@ export class UI {
 
     draw() {
         textAlign(CENTER, CENTER);
+        for (let v of this.text) {
+            fill(v.c);
+            textSize(v.textSize);
+            let t = v.text || v.getText();
+            text(t, v.x, v.y + 3); // todo: better text centering
+        }
         for (let v of this.buttons) {
             if (utils.mouseInRect(v.box)) {
                 utils.setPointer();

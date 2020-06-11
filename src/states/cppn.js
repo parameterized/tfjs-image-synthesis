@@ -1,88 +1,101 @@
 
-import { utils } from '../utils.js';
-import { targetWidth, targetHeight, viewport, gfx,
-    stateManager as sm, uploader, generator } from '../index.js';
+import { targetWidth, targetHeight, gfx, stateManager as sm } from '../index.js';
 import { UI } from '../ui.js';
+import { Uploader } from '../uploader.js';
+import { ModelInterface } from '../models/interface.js';
+import { CPPNModel } from '../models/cppnModel.js';
 
 export class CPPNState {
-    drag = { held: false, offsetStart: { x: 0, y: 0 }, mouseStart: { x: 0, y: 0 } };
+    res = 64;
 
     constructor() {
+        let cx = targetWidth / 4;
+        let cy = targetHeight / 2;
+        let w = 512, h = 512;
+        let box = [cx - w / 2, cy - h / 2, w, h]
+        this.uploader = new Uploader(box, this.res, img => {
+            this.reloadModelInterface();
+        });
+
+        this.useSmallModel = false;
+        let model = new CPPNModel(this.useSmallModel);
+        cx = targetWidth * 3 / 4;
+        cy = targetHeight / 2;
+        w = 512, h = 512;
+        let x = cx - w / 2;
+        let y = cy - h / 2;
+        box = [cx - w / 2, cy - h / 2, w, h]
+        this.modelInterface = new ModelInterface(model, box, this.res);
+
         this.ui = new UI();
+        this.ui.addText({
+            text: 'CPPN with sinusoidal\nposition encoding',
+            x: targetWidth / 2, y: 60
+        });
         this.ui.addButton({
             text: 'Back', box: [50, 50, 200, 80],
             action: () => sm.switchState('menu')
         });
 
-        // pos for generator image - todo: redundancy
-        let cx = targetWidth * 3 / 4;
-        let cy = targetHeight / 2;
-        let w = 512, h = 512;
-        let x = cx - w / 2;
-        let y = cy - h / 2;
-
         let bw = (w - 20) / 3;
         this.ui.addButton({
             text: 'Zoom In', box: [x, y - 70, bw, 60],
-            action: () => this.zoom(1.5),
+            action: () => this.modelInterface.transform.zoom *= 1.5,
             textSize: 28
         });
         this.ui.addButton({
             text: 'Zoom Out', box: [x + bw + 10, y - 70, bw, 60],
-            action: () => this.zoom(1 / 1.5),
+            action: () => this.modelInterface.transform.zoom /= 1.5,
             textSize: 28
         });
         this.ui.addButton({
             text: 'Reset View', box: [x + (bw + 10) * 2, y - 70, bw, 60],
-            action: () => generator.setTransform(0, 0, 1),
+            action: () => this.modelInterface.setTransform(0, 0, 1),
             textSize: 28
         });
 
         bw = 340;
         this.ui.addButton({
-            getText: () => `Use ${generator.smallModel ? 'Large' : 'Small'} Model`,
+            getText: () => `Use ${this.useSmallModel ? 'Large' : 'Small'} Model`,
             box: [cx - bw / 2, y + w + 60, bw, 80],
             action: () => {
-                generator.smallModel = !generator.smallModel;
-                if (generator.targetTensor) {
-                    generator.startTraining();
-                }
+                this.useSmallModel = !this.useSmallModel;
+                this.reloadModelInterface();
             }
         });
 
         this.ui.addButton({
             text: 'Retrain', box: [targetWidth / 2 - 100, targetHeight / 2 - 40, 200, 80],
-            action: () => {
-                if (generator.targetTensor) {
-                    generator.startTraining();
-                }
-            }
+            action: () => this.reloadModelInterface()
         });
+
+        // pass callbacks to uploader
+        let cbs = ['dragOver', 'dragLeave', 'drop'];
+        for (let id of cbs) {
+            this[id] = (...args) => this.uploader[id](...args);
+        }
+
+        // pass callbacks to model interface
+        cbs = ['mouseReleased', 'mouseWheel', 'update'];
+        for (let id of cbs) {
+            this[id] = (...args) => this.modelInterface[id](...args);
+        }
+    }
+
+    reloadModelInterface() {
+        this.modelInterface.dispose();
+        let model = new CPPNModel(this.useSmallModel);
+        let box = [...this.modelInterface.box];
+        this.modelInterface = new ModelInterface(model, box, this.res);
+        if (this.uploader.scaledImage) {
+            this.modelInterface.handleImage(this.uploader.scaledImage);
+        }
     }
 
     mousePressed() {
         this.ui.mousePressed();
-        uploader.mousePressed();
-
-        if (utils.mouseInRect(generator.imageBox)) {
-            this.drag.held = true;
-            this.drag.offsetStart = {...generator.offset};
-            this.drag.mouseStart = { x: viewport.mouseX, y: viewport.mouseY };
-        }
-    }
-
-    mouseReleased() {
-        this.drag.held = false;
-    }
-
-    mouseWheel(delta) {
-        if (utils.mouseInRect(generator.imageBox)) {
-            if (delta > 0) {
-                this.zoom(1 / 1.2);
-            } else {
-                this.zoom(1.2);
-            }
-        }
+        this.uploader.mousePressed();
+        this.modelInterface.mousePressed();
     }
 
     keyPressed() {
@@ -91,50 +104,22 @@ export class CPPNState {
                 sm.switchState('menu');
                 break;
             case 82: // R
-                if (generator.targetTensor) {
-                    generator.startTraining();
-                }
+                this.reloadModelInterface();
                 break;
             case 70: // F
-                uploader.handleImage(gfx.frog);
+                this.uploader.handleImage(gfx.frog);
                 break;
         }
-    }
-
-    handleImage() {
-        generator.loadTargetTensor();
-    }
-
-    zoom(m) {
-        let o = generator.offset;
-        let z = generator.zoom;
-        generator.setTransform(o.x, o.y, z * m);
-    }
-
-    update(dt) {
-        if (utils.mouseInRect(generator.imageBox) || this.drag.held) {
-            utils.cursorStyle('move');
-        }
-        if (this.drag.held) {
-            let ms = this.drag.mouseStart;
-            let os = this.drag.offsetStart;
-            let b = generator.imageBox, z = generator.zoom;
-            let dx = (viewport.mouseX - ms.x) / b[2] / z;
-            let dy = (viewport.mouseY - ms.y) / b[3] / z;
-            generator.setTransform(os.x + dx, os.y + dy, z);
-        }
-        
-        generator.update(dt);
     }
 
     draw() {
         fill('#EEF1EF');
         rect(0, 0, targetWidth, targetHeight);
 
-        uploader.draw();
-        generator.draw();
+        this.uploader.draw();
+        this.modelInterface.draw();
         this.ui.draw();
 
-        uploader.drawOverlay();
+        this.uploader.drawOverlay();
     }
 }

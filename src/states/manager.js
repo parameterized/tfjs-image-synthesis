@@ -1,6 +1,7 @@
 
 import { ease } from '../utils.js';
 import { targetWidth } from '../index.js';
+
 import { MenuState } from './menu.js';
 import { CPPNState } from './cppn.js';
 
@@ -14,8 +15,10 @@ export class StateManager {
         };
         this.activeState = this.states.menu;
 
-        // set up callbacks
-        let cbs = ['mousePressed', 'mouseReleased', 'mouseWheel', 'keyPressed', 'handleImage'];
+        // pass callbacks to active state
+        let cbs = [
+            'mousePressed', 'mouseReleased', 'mouseWheel', 'keyPressed',
+            'dragOver', 'dragLeave', 'drop'];
         for (let id of cbs) {
             this[id] = (...args) => this.stateCallback(id, ...args);
         }

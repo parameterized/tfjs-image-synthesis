@@ -1,8 +1,6 @@
 
 import { Viewport } from './viewport.js';
 import { StateManager } from './states/manager.js';
-import { Uploader } from './uploader.js';
-import { Generator } from './generator.js';
 
 export let targetWidth = 1600;
 export let targetHeight = 900;
@@ -20,16 +18,13 @@ let dtTimer = 0;
 
 export let stateManager;
 
-export let imageRes = 64;
-export let uploader, generator;
-
-window.preload = function() {
+window.preload = function () {
     gfx = {
         frog: loadImage('gfx/biggan_frog.png')
     };
 }
 
-window.setup = function() {
+window.setup = function () {
     canvas = createCanvas(innerWidth, innerHeight);
     canvas.parent('sketch');
 
@@ -56,18 +51,15 @@ window.setup = function() {
     context.imageSmoothingEnabled = false;
 
     strokeJoin(ROUND);
-    
+
     viewport = new Viewport(targetWidth, targetHeight);
 
     stateManager = new StateManager();
 
-    uploader = new Uploader();
-    // add drop callbacks
-    canvas.dragOver(() => uploader.dragOver());
-    canvas.dragLeave(() => uploader.dragLeave());
-    canvas.drop(file => uploader.drop(file), () => uploader.dragLeave());
-
-    generator = new Generator(imageRes);
+    // add upload drop callbacks
+    canvas.dragOver(() => stateManager.dragOver());
+    canvas.dragLeave(() => stateManager.dragLeave());
+    canvas.drop(file => stateManager.drop(file), () => stateManager.dragLeave());
 }
 
 function pressed() {
@@ -77,13 +69,13 @@ function released() {
     stateManager.mouseReleased();
 }
 
-window.mousePressed = function(event) {
+window.mousePressed = function (event) {
     event.preventDefault();
     if (touchTimer > 0.5) {
         pressed();
     }
 }
-window.touchStarted = function(event) {
+window.touchStarted = function (event) {
     event.preventDefault();
     touchUsed = true;
     // first element in touches that isn't in ptouches
@@ -99,13 +91,13 @@ window.touchStarted = function(event) {
     touch = null;
 }
 
-window.mouseReleased = function(event) {
+window.mouseReleased = function (event) {
     event.preventDefault();
     if (touchTimer > 0.5) {
         released();
     }
 }
-window.touchEnded = function(event) {
+window.touchEnded = function (event) {
     event.preventDefault();
     // first element in ptouches that isn't in touches
     touch = ptouches.filter(pt => touches.findIndex(t => t.id === pt.id) === -1)[0];
@@ -117,19 +109,19 @@ window.touchEnded = function(event) {
     touch = null;
 }
 
-window.mouseDragged = function(event) {
+window.mouseDragged = function (event) {
     event.preventDefault();
 }
-window.touchMoved = function(event) {
+window.touchMoved = function (event) {
     event.preventDefault();
 }
 
-window.mouseWheel = function(event) {
+window.mouseWheel = function (event) {
     event.preventDefault();
     stateManager.mouseWheel(event.delta);
 }
 
-window.keyPressed = function() {
+window.keyPressed = function () {
     stateManager.keyPressed();
 }
 
@@ -149,12 +141,12 @@ function fixedUpdate(dt) {
     stateManager.update(dt);
 }
 
-window.draw = function() {
+window.draw = function () {
     update();
     noStroke();
 
     viewport.set();
-    
+
     stateManager.draw();
 
     // cover top/bottom off-screen graphics

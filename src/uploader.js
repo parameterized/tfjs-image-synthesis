@@ -1,27 +1,30 @@
 
 import { utils } from './utils.js';
-import { targetWidth, targetHeight, imageRes, stateManager as sm } from './index.js';
+import { targetWidth, targetHeight } from './index.js';
 
 export class Uploader {
-    constructor() {
-        let cx = targetWidth / 4;
-        let cy = targetHeight / 2;
-        let w = 512, h = 512;
-        this.imageBox = [cx - w / 2, cy - h / 2, w, h];
+    constructor(box, res, imageCB) {
+        this.box = box;
+        this.res = res;
+        this.imageCB = imageCB;
     }
 
     handleFile(file) {
-        if (file.type === 'image' && sm.activeState !== sm.states.menu) {
+        if (file.type === 'image') {
             loadImage(file.data, img => this.handleImage(img));
         }
     }
 
     handleImage(img) {
-        this.originalImage = img;
-        this.scaledImage = img.get();
-        this.scaledImage.resize(imageRes, imageRes);
+        // white bg if transparent
+        let g = createGraphics(img.width, img.height);
+        g.background(255);
+        g.image(img, 0, 0);
+        this.image = g.get();
+        this.scaledImage = this.image.get();
+        this.scaledImage.resize(this.res, this.res);
         this.scaledImage.loadPixels();
-        sm.handleImage();
+        this.imageCB(this.scaledImage);
     }
 
     dragOver() {
@@ -37,7 +40,7 @@ export class Uploader {
     }
 
     mousePressed() {
-        if (utils.mouseInRect(this.imageBox)) {
+        if (utils.mouseInRect(this.box)) {
             let input = createFileInput(file => {
                 this.handleFile(file);
             });
@@ -49,19 +52,19 @@ export class Uploader {
 
     draw() {
         let hovering = false
-        if (utils.mouseInRect(this.imageBox)) {
+        if (utils.mouseInRect(this.box)) {
             utils.setPointer();
             hovering = true;
         }
 
         if (this.scaledImage) {
-            image(this.scaledImage, ...this.imageBox);
+            image(this.scaledImage, ...this.box);
         } else {
             fill(200);
-            rect(...this.imageBox);
+            rect(...this.box);
 
             fill(140);
-            let b = this.imageBox;
+            let b = this.box;
             let bx = b[0], by = b[1], bw = b[2], bh = b[3];
             push();
             translate(bx + bw / 2, by + bh / 2);

@@ -7,8 +7,9 @@ export class MenuState {
         this.ui = new UI();
         let c1 = color('#EEF1EF');
         let c2 = color('#A9B4C2');
+        let bw = 250;
         this.ui.addButton({
-            text: 'CPPN', box: [160, 160, 200, 80],
+            text: 'CPPN', box: [160, 160, bw, 80],
             action: () => sm.switchState('cppn'),
             c1: c1, c2: c2
         });
