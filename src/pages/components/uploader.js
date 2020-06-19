@@ -1,12 +1,13 @@
 
-import { utils } from './utils.js';
-import { targetWidth, targetHeight } from './index.js';
+import { utils } from '../../utils.js';
+import { targetWidth, targetHeight } from '../../index.js';
 
 export class Uploader {
-    constructor(box, res, imageCB) {
-        this.box = box;
-        this.res = res;
-        this.imageCB = imageCB;
+    constructor(args) {
+        // handleImage, [box, res]
+        this.imageCB = args.handleImage;
+        this.box = args.box || utils.getBoxFromCenter(targetWidth / 4, targetHeight / 2, 512, 512);
+        this.res = args.res || 64;
     }
 
     handleFile(file) {

@@ -1,6 +1,7 @@
 
+import * as tf from '@tensorflow/tfjs';
 import { Viewport } from './viewport.js';
-import { StateManager } from './states/manager.js';
+import { PageManager } from './pageManager.js';
 
 export let targetWidth = 1600;
 export let targetHeight = 900;
@@ -16,11 +17,19 @@ export let touch = null; // set to what callback is referencing
 let fixedDt = 1 / 60;
 let dtTimer = 0;
 
-export let stateManager;
+export let pageManager;
+export let pageCallbackNames = [
+    'mousePressed', 'mouseReleased', 'mouseWheel', 'keyPressed',
+    'update', 'draw', 'dragOver', 'dragLeave', 'drop'
+];
+
+// fixes glitch at top of image
+tf.ENV.set('WEBGL_PACK', false);
 
 window.preload = function () {
     gfx = {
-        frog: loadImage('gfx/biggan_frog.png')
+        frog: loadImage('gfx/biggan_frog.png'),
+        rocks: loadImage('gfx/rocks.png')
     };
 }
 
@@ -54,19 +63,19 @@ window.setup = function () {
 
     viewport = new Viewport(targetWidth, targetHeight);
 
-    stateManager = new StateManager();
+    pageManager = new PageManager();
 
     // add upload drop callbacks
-    canvas.dragOver(() => stateManager.dragOver());
-    canvas.dragLeave(() => stateManager.dragLeave());
-    canvas.drop(file => stateManager.drop(file), () => stateManager.dragLeave());
+    canvas.dragOver(() => pageManager.dragOver());
+    canvas.dragLeave(() => pageManager.dragLeave());
+    canvas.drop(file => pageManager.drop(file), () => pageManager.dragLeave());
 }
 
 function pressed() {
-    stateManager.mousePressed();
+    pageManager.mousePressed();
 }
 function released() {
-    stateManager.mouseReleased();
+    pageManager.mouseReleased();
 }
 
 window.mousePressed = function (event) {
@@ -118,11 +127,11 @@ window.touchMoved = function (event) {
 
 window.mouseWheel = function (event) {
     event.preventDefault();
-    stateManager.mouseWheel(event.delta);
+    pageManager.mouseWheel(event.delta);
 }
 
 window.keyPressed = function () {
-    stateManager.keyPressed();
+    pageManager.keyPressed();
 }
 
 function update() {
@@ -138,7 +147,7 @@ function update() {
 }
 
 function fixedUpdate(dt) {
-    stateManager.update(dt);
+    pageManager.update(dt);
 }
 
 window.draw = function () {
@@ -147,7 +156,7 @@ window.draw = function () {
 
     viewport.set();
 
-    stateManager.draw();
+    pageManager.draw();
 
     // cover top/bottom off-screen graphics
     fill('#1C2321');
