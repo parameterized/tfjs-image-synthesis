@@ -102,6 +102,12 @@ export class ModelInterface {
         }
     }
 
+    keyPressed() {
+        if (keyCode === 82) { // R
+            this.reload();
+        }
+    }
+
     setTransform(x, y, zoom) {
         this.transform = {
             offset: { x: x, y: y },

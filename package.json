@@ -1,5 +1,5 @@
 {
-  "name": "tfjs-image-synthesis",
+  "name": "tfjs-experiments",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.js",
@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/parameterized/tfjs-image-synthesis.git"
+    "url": "git+https://github.com/parameterized/tfjs-experiments.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/parameterized/tfjs-image-synthesis/issues"
+    "url": "https://github.com/parameterized/tfjs-experiments/issues"
   },
-  "homepage": "https://github.com/parameterized/tfjs-image-synthesis#readme",
+  "homepage": "https://github.com/parameterized/tfjs-experiments#readme",
   "devDependencies": {
     "@babel/core": "^7.9.6",
     "@babel/plugin-proposal-class-properties": "^7.8.3",

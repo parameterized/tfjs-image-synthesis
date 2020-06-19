@@ -1,5 +1,5 @@
 
-import { targetWidth, targetHeight } from '../index.js';
+import { targetWidth, targetHeight, gfx } from '../index.js';
 import { Page } from './page.js';
 import { CPPNModel } from '../models/cppnModel.js';
 import { ModelInterface } from './components/modelInterface.js';
@@ -14,7 +14,7 @@ export class CPPN extends Page {
             model: this.model
         }));
         
-        this.addComponent(new Uploader({
+        this.uploader = this.addComponent(new Uploader({
             handleImage: (img) => this.modelInterface.handleImage(img)
         }));
         
@@ -33,5 +33,12 @@ export class CPPN extends Page {
             text: 'Retrain', box: [targetWidth / 2 - 100, targetHeight / 2 - 40, 200, 80],
             action: () => this.modelInterface.reload()
         });
+    }
+
+    keyPressed() {
+        if (keyCode === 70) { // F
+            this.uploader.handleImage(gfx.frog);
+        }
+        super.keyPressed();
     }
 }
