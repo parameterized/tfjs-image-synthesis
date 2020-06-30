@@ -2,16 +2,16 @@
 import { ease } from './utils.js';
 import { targetWidth, pageCallbackNames } from './index.js';
 
-import { Menu } from './pages/menu.js';
-import { CPPN } from './pages/cppn.js';
+import { MenuPage } from './pages/menu.js';
+import { ImagePage } from './pages/image.js';
 
 export class PageManager {
     switchT = 1;
 
     constructor() {
         this.pageClasses = {
-            menu: Menu,
-            cppn: CPPN
+            menu: MenuPage,
+            image: ImagePage
         };
         this.pages = {
             menu: new this.pageClasses.menu()

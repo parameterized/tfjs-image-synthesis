@@ -1,15 +1,15 @@
 
 import { targetWidth, targetHeight, gfx } from '../index.js';
 import { Page } from './page.js';
-import { CPPNModel } from '../models/cppnModel.js';
+import { ImageModel } from '../models/imageModel.js';
 import { ModelInterface } from './components/modelInterface.js';
 import { Uploader } from './components/uploader.js';
 
-export class CPPN extends Page {
+export class ImagePage extends Page {
     constructor() {
-        super('CPPN with sinusoidal\nposition encoding');
+        super('Image Synthesis\n(CPPN with sine activation)');
 
-        this.model = new CPPNModel();
+        this.model = new ImageModel();
         this.modelInterface = this.addComponent(new ModelInterface({
             model: this.model
         }));

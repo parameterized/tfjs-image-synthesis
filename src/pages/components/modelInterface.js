@@ -22,7 +22,6 @@ export class ModelInterface {
         this.res = args.res || 64;
 
         this.model.load();
-        this.trainInput = this.model.getInput(this.res, 0, 0, 1);
         this.viewInput = this.model.getInput(this.res, 0, 0, 1);
         this.image = createImage(this.res, this.res);
         this.image.loadPixels();
@@ -54,7 +53,7 @@ export class ModelInterface {
             return tf.browser.fromPixels({
                 data: Uint8Array.from(img.pixels),
                 width: img.width, height: img.height
-            }, 3).div(255);
+            }, 3).mul(2 / 255).sub(1); // [-1, 1]
         });
         if (this.trainStep === 0) {
             this.setTransform(0, 0, 1);
@@ -64,8 +63,9 @@ export class ModelInterface {
     }
 
     async setImage(tensor) {
-        let newImage = await tf.browser.toPixels(tensor);
-        tf.dispose(tensor);
+        let rescaledTensor = tf.tidy(() => tf.clipByValue(tensor.add(1).div(2), 0, 1));
+        let newImage = await tf.browser.toPixels(rescaledTensor);
+        tf.dispose([tensor, rescaledTensor]);
         utils.copyPixels(newImage, this.image.pixels);
         this.image.updatePixels();
     }
@@ -74,7 +74,6 @@ export class ModelInterface {
         this.model.load();
         this.trainStep = 0;
         this.setTransform(0, 0, 1);
-        this.trainInput = this.model.getInput(this.res, 0, 0, 1);
         this.viewInput = this.model.getInput(this.res, 0, 0, 1);
         this.updateView();
     }
@@ -122,10 +121,11 @@ export class ModelInterface {
         if (this.drag.held) {
             let ms = this.drag.mouseStart;
             let os = this.drag.offsetStart;
-            let b = this.box, z = this.transform.zoom;
-            let dx = (viewport.mouseX - ms.x) / b[2] / z;
-            let dy = (viewport.mouseY - ms.y) / b[3] / z;
-            this.transform.offset = { x: os.x + dx, y: os.y + dy };
+            let b = this.box, w = b[2], h = b[3];
+            let z = this.transform.zoom;
+            let dx = (viewport.mouseX - ms.x) / w / z;
+            let dy = (viewport.mouseY - ms.y) / h / z;
+            this.transform.offset = { x: os.x - dx, y: os.y - dy };
         }
 
         let t = this.transform;
@@ -134,21 +134,26 @@ export class ModelInterface {
         let sameView = t.offset.x === _t.offset.x && t.offset.y === _t.offset.y && t.zoom === _t.zoom;
 
         let didTrainStep = false;
+        let didSetImage = false;
         if (this.targetTensor && this.trainStep < this.trainStepMax) {
             // train step
-            let x = this.trainInput;
             let y = this.targetTensor;
-            let predImg = this.model.trainStep(x, y);
+            let predImg = this.model.trainStep(y);
             didTrainStep = true;
-            if (viewIsOrigin) {
+            if (viewIsOrigin && predImg) {
                 // use image from training
                 this.setImage(predImg);
+                didSetImage = true;
             } else {
                 tf.dispose(predImg);
             }
             this.trainStep++;
         }
-        if (didTrainStep && !viewIsOrigin || !sameView) {
+        let isLastStep = this.trainStep === this.trainStepMax;
+        if (didTrainStep && !didSetImage || !sameView || isLastStep) {
+            if (isLastStep) {
+                this.lastTransform.zoom = 1.01; // make sameView false in updateView
+            }
             this.updateView();
         }
     }
@@ -164,7 +169,7 @@ export class ModelInterface {
             this.viewInput = this.model.getInput(this.res, t.offset.x, t.offset.y, t.zoom);
             this.lastTransform = { ...t };
         }
-        let predImg = tf.tidy(() => this.model.predict(this.viewInput).clipByValue(0, 1));
+        let predImg = tf.tidy(() => this.model.predict(this.viewInput));
         this.setImage(predImg);
     }
 
